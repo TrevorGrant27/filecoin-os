@@ -1,724 +1,874 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 
-// Navigation tree items
-const navItems = [
-  { id: "home", label: "Home", icon: ">" },
-  { id: "about", label: "About", icon: ">" },
-  { id: "problem", label: "The Problem", icon: ">", indent: 1 },
-  { id: "solution", label: "The Solution", icon: ">", indent: 1 },
-  { id: "program", label: "Program", icon: ">" },
-  { id: "includes", label: "What's Included", icon: ">", indent: 1 },
-  { id: "outcomes", label: "Outcomes", icon: ">", indent: 1 },
-  { id: "audience", label: "Who It's For", icon: ">" },
-  { id: "team", label: "Team", icon: ">" },
-  { id: "contact", label: "Contact", icon: "+" },
-  { id: "waitlist", label: "Join Waitlist", icon: "+" },
-];
-
-// Mobile menu button
-function MobileMenuButton({ isOpen, onClick }: { isOpen: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="lg:hidden os-button p-2 fixed top-3 left-3 z-50"
-      aria-label={isOpen ? "Close menu" : "Open menu"}
-    >
-      <span className="text-[#5fb4f7]">{isOpen ? "[X]" : "[=]"}</span>
-    </button>
-  );
+// ============================================
+// TYPES
+// ============================================
+interface StarData {
+  id: number;
+  x: number;
+  y: number;
+  size: number;
+  opacity: number;
 }
 
-// Mobile overlay
-function MobileOverlay({ isOpen, onClick }: { isOpen: boolean; onClick: () => void }) {
-  if (!isOpen) return null;
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+function generateStars(count: number): StarData[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    y: Math.random() * 100,
+    size: Math.random() * 2 + 1,
+    opacity: Math.random() * 0.5 + 0.2,
+  }));
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+// ============================================
+// COMPONENTS
+// ============================================
+
+function Stars({ data, opacity }: { data: StarData[]; opacity: number }) {
   return (
     <div
-      className="lg:hidden fixed inset-0 bg-black/70 z-30"
-      onClick={onClick}
-    />
-  );
-}
-
-
-// Clock component
-function Clock() {
-  const [time, setTime] = useState<string>("");
-  const [date, setDate] = useState<string>("");
-
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setTime(now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }));
-      setDate(now.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }));
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="text-right font-mono">
-      <div className="text-[#e8f1f8]">{date}</div>
-      <div className="text-[#b8d4e8]">{time}</div>
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        opacity,
+        transition: "opacity 1s ease",
+      }}
+    >
+      {data.map((star) => (
+        <div
+          key={star.id}
+          style={{
+            position: "absolute",
+            left: `${star.x}%`,
+            top: `${star.y}%`,
+            width: star.size,
+            height: star.size,
+            backgroundColor: "#ffffff",
+            borderRadius: "50%",
+            opacity: star.opacity,
+          }}
+        />
+      ))}
     </div>
   );
 }
 
-// Menu bar component
-function MenuBar({ activeSection }: { activeSection: string }) {
-  return (
-    <div className="os-menubar">
-      <span className="text-[#b8d4e8]">Strategy OS</span>
-      <span className="text-[#b8d4e8] ml-auto">
-        {activeSection.toUpperCase()}
-      </span>
-    </div>
-  );
-}
-
-// Sidebar navigation
-function Sidebar({ activeSection, onNavigate, isOpen, onClose, isMobile = true }: { activeSection: string; onNavigate: (id: string) => void; isOpen?: boolean; onClose?: () => void; isMobile?: boolean }) {
-  return (
-    <div className={`
-      os-window h-full flex flex-col
-      ${isMobile ? 'fixed inset-y-0 left-0 z-40 w-[280px] transform transition-transform duration-300 ease-in-out' : ''}
-      ${isMobile && !isOpen ? '-translate-x-full' : 'translate-x-0'}
-    `}>
-      <div className="os-window-header">
-        <span className="text-[#5fb4f7]">[&gt;]</span>
-        <span className="os-window-title">Filecoin</span>
-        {isMobile && (
-          <button
-            onClick={onClose}
-            className="ml-auto text-[#5fb4f7] hover:text-[#7fcfff]"
-            aria-label="Close menu"
-          >
-            [X]
-          </button>
-        )}
-      </div>
-      <div className="flex-1 overflow-auto py-2">
-        <nav>
-          {navItems.map((item) => (
-            <a
-              key={item.id}
-              href={`#${item.id}`}
-              onClick={(e) => {
-                e.preventDefault();
-                onNavigate(item.id);
-                if (isMobile) onClose?.();
-              }}
-              className={`tree-item ${activeSection === item.id ? "active" : ""}`}
-              style={{ paddingLeft: item.indent ? `${item.indent * 16 + 12}px` : "12px" }}
-            >
-              <span className="tree-icon">{item.icon}</span>
-              <span>{item.label}</span>
-            </a>
-          ))}
-        </nav>
-      </div>
-    </div>
-  );
-}
-
-// Main content window with grid background
-function MainContent({ activeSection }: { activeSection: string }) {
-  const renderContent = () => {
-    switch (activeSection) {
-      case "home":
-        return <HomeContent />;
-      case "about":
-      case "problem":
-        return <ProblemContent />;
-      case "solution":
-        return <SolutionContent />;
-      case "program":
-      case "includes":
-        return <ProgramContent />;
-      case "outcomes":
-        return <OutcomesContent />;
-      case "audience":
-        return <AudienceContent />;
-      case "team":
-        return <TeamContent />;
-      case "contact":
-      case "waitlist":
-        return <WaitlistContent />;
-      default:
-        return <HomeContent />;
-    }
-  };
+function RocketShip({ glowIntensity }: { glowIntensity: number }) {
+  const flameHeight = 28 + glowIntensity * 48;
+  const glowHeight = 36 + glowIntensity * 72;
+  const showFlame = glowIntensity > 0.01;
 
   return (
-    <div className="os-window h-full flex flex-col overflow-hidden">
-      <MenuBar activeSection={activeSection} />
-      <div className="flex-1 overflow-auto grid-bg">
-        <div className="p-4 sm:p-6">
-          {renderContent()}
-        </div>
-      </div>
-    </div>
-  );
-}
+    <div style={{ position: "relative" }}>
+      <svg
+        width={56}
+        height={72}
+        viewBox="0 0 48 64"
+        style={{
+          filter:
+            glowIntensity > 0.3
+              ? `drop-shadow(0 0 ${20 * glowIntensity}px rgba(95,180,247,${0.4 * glowIntensity}))`
+              : undefined,
+        }}
+      >
+        <defs>
+          <linearGradient id="bodyGrad" x1="14" y1="20" x2="34" y2="20">
+            <stop offset="0%" stopColor="#2a3f55" />
+            <stop offset="50%" stopColor="#3d5a7a" />
+            <stop offset="100%" stopColor="#2a3f55" />
+          </linearGradient>
+          <linearGradient id="noseGrad" x1="24" y1="2" x2="24" y2="20">
+            <stop offset="0%" stopColor="#5fb4f7" />
+            <stop offset="100%" stopColor="#3d5a7a" />
+          </linearGradient>
+          <linearGradient id="finGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#3d5a7a" />
+            <stop offset="100%" stopColor="#1a2a3a" />
+          </linearGradient>
+        </defs>
+        <ellipse cx="24" cy="20" rx="10" ry="18" fill="url(#bodyGrad)" />
+        <path d="M24 2 L34 20 L14 20 Z" fill="url(#noseGrad)" />
+        <circle cx="24" cy="18" r="4" fill="#0a1628" stroke="#5fb4f7" strokeWidth="1" />
+        <circle cx="24" cy="18" r="2" fill="rgba(95,180,247,0.3)" />
+        <path d="M14 35 L8 48 L14 42 Z" fill="url(#finGrad)" />
+        <path d="M34 35 L40 48 L34 42 Z" fill="url(#finGrad)" />
+        <rect x="18" y="36" width="12" height="6" rx="1" fill="#1a2a3a" />
+      </svg>
 
-// Home content
-function HomeContent() {
-  return (
-    <div className="animate-fade-in max-w-3xl">
-      <div className="mb-6">
-        <span className="text-[#7da4c9]">. </span>
-        <span className="text-[#e8f1f8]">FILECOIN STRATEGY OS</span>
-      </div>
-
-      <p className="text-[#c8dced] mb-4 leading-relaxed">
-        The Strategy OS is a purpose-built public good for the Filecoin ecosystem,
-        based on Clarity University - Jayne&apos;s strategic clarity platform.
-      </p>
-
-      <p className="text-[#c8dced] mb-4 leading-relaxed">
-        User-centered in design, built from 500K data points gathered across 4K small
-        businesses and over 72 enterprises including organizations like Coinstar, PepsiCo,
-        Mondelēz, Takeda, and American Red Cross.
-      </p>
-
-      <p className="text-[#c8dced] mb-8 leading-relaxed">
-        It was designed to provide the high-value education, tools, support, and community
-        that founders need to develop scalable, repeatable outcomes for emerging, fast-moving,
-        technologically adaptive brands.
-      </p>
-
-      <p className="text-[#e8f1f8] mb-8">Please explore. :)</p>
-
-      <hr className="os-divider" />
-
-      <DataDisplay />
-    </div>
-  );
-}
-
-// DNA/Data style display component
-function DataDisplay() {
-  const [dataString, setDataString] = useState("");
-
-  useEffect(() => {
-    // Generate random data-like string
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    const segments: string[] = [];
-    for (let i = 0; i < 20; i++) {
-      let segment = "";
-      for (let j = 0; j < 4; j++) {
-        segment += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      segments.push(segment);
-    }
-    setDataString(segments.join("-"));
-  }, []);
-
-  return (
-    <div className="os-card">
-      <div className="flex justify-between items-center mb-4 text-xs">
-        <span className="text-[#c9d1d9] font-mono">TR{Date.now().toString().slice(0, 13)}</span>
-        <span className="text-[#8b949e]">{new Date().toLocaleDateString()}</span>
-      </div>
-      <div className="os-data leading-relaxed">
-        {dataString}
-      </div>
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="border border-[#30363d] p-3">
-          <div className="text-[#8b949e] text-xs mb-1">METHODOLOGY</div>
-          <div className="text-[#c9d1d9] text-sm">Clarity University</div>
-        </div>
-        <div className="border border-[#30363d] p-3">
-          <div className="text-[#8b949e] text-xs mb-1">DATA POINTS</div>
-          <div className="text-[#c9d1d9] text-sm">500,000+</div>
-        </div>
-        <div className="border border-[#30363d] p-3">
-          <div className="text-[#8b949e] text-xs mb-1">STATUS</div>
-          <div className="text-[#3fb950] text-sm">ACTIVE</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Problem content
-function ProblemContent() {
-  return (
-    <div className="animate-fade-in max-w-3xl">
-      <div className="mb-6">
-        <span className="text-[#7da4c9]">. </span>
-        <span className="text-[#e8f1f8]">THE PROBLEM</span>
-      </div>
-
-      <p className="text-xl text-[#e8f1f8] mb-6">
-        Strong technology. <span className="text-[#7da4c9]">Weak positioning.</span>
-      </p>
-
-      <p className="text-[#c8dced] mb-4 leading-relaxed">
-        The Filecoin ecosystem funds exceptional technical teams through ProPGF, RetroPGF,
-        dev grants, and other mechanisms - but many of these teams struggle to articulate
-        their value proposition, differentiate from competitors, and reach their target
-        audiences effectively.
-      </p>
-
-      <p className="text-[#c8dced] mb-6 leading-relaxed">
-        This creates a bottleneck: strong technology with weak strategic positioning means
-        slower adoption, lower visibility, and reduced ecosystem impact.
-      </p>
-
-      <hr className="os-divider" />
-
-      <div className="text-xs text-[#b8d4e8] uppercase tracking-wider mb-4">The Current Reality</div>
-
-      <div className="space-y-3">
-        <div className="os-card">
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="text-[#e8f1f8] text-lg">$100K+</div>
-              <div className="text-[#c8dced] text-sm mt-1">Traditional enterprise strategy consulting cost</div>
-            </div>
-            <span className="text-[#f87171] text-xs font-semibold">BARRIER</span>
-          </div>
-        </div>
-        <div className="os-card">
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="text-[#e8f1f8] text-lg">6+ Months</div>
-              <div className="text-[#c8dced] text-sm mt-1">Typical timeline for traditional consulting</div>
-            </div>
-            <span className="text-[#fbbf24] text-xs font-semibold">SLOW</span>
-          </div>
-        </div>
-        <div className="os-card">
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="text-[#e8f1f8] text-lg">DIY = Generic</div>
-              <div className="text-[#c8dced] text-sm mt-1">Self-service produces inconsistent positioning</div>
-            </div>
-            <span className="text-[#b8d4e8] text-xs font-semibold">INEFFECTIVE</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Solution content
-function SolutionContent() {
-  return (
-    <div className="animate-fade-in max-w-3xl">
-      <div className="mb-6">
-        <span className="text-[#7da4c9]">. </span>
-        <span className="text-[#e8f1f8]">THE SOLUTION</span>
-      </div>
-
-      <p className="text-xl text-[#e8f1f8] mb-6">
-        Filecoin Strategy OS
-      </p>
-
-      <p className="text-[#c8dced] mb-4 leading-relaxed">
-        A plug-and-play strategy system designed for fast-moving teams. The exact methodology
-        used with Fortune 50 enterprises like PepsiCo, Mondelēz, Takeda, Abbott, and American Red
-        Cross—adapted for Filecoin ecosystem teams.
-      </p>
-
-      <div className="os-card my-6">
-        <div className="flex items-center gap-2">
-          <span className="text-[#4ade80]">●</span>
-          <span className="text-[#c8dced] text-sm">Built from 500K+ data points across 4K+ businesses</span>
-        </div>
-      </div>
-
-      <hr className="os-divider" />
-
-      <div className="text-xs text-[#b8d4e8] uppercase tracking-wider mb-4">System Initialization</div>
-
-      <div className="os-code">
-        <p className="text-[#c8dced]">$ ./strategy-os --init</p>
-        <p className="text-[#b8d4e8]">→ Loading curriculum...</p>
-        <p className="text-[#b8d4e8]">→ Initializing strategy tool...</p>
-        <p className="text-[#b8d4e8]">→ Connecting to expert network...</p>
-        <p className="text-[#4ade80]">✓ Ready to transform your positioning</p>
-        <span className="os-cursor"></span>
-      </div>
-    </div>
-  );
-}
-
-// Program content
-function ProgramContent() {
-  const features = [
-    { icon: "▶", title: "Video Course", description: "Complete strategy curriculum detailing the exact methodology used with global brands." },
-    { icon: "◈", title: "Strategy Tool", description: "Fill-in-the-blanks interactive workbook: audience, insight, position, promise, story, messaging." },
-    { icon: "◉", title: "1-on-1 Feedback", description: "Dedicated time with a Jayne strategist to pressure-test your work and refine your approach." },
-    { icon: "∞", title: "Unlimited Q&A", description: "Submit unlimited questions throughout the cohort period. Get expert responses." },
-    { icon: "⬡", title: "Group Calls", description: "Intimate sessions with the Jayne team and fellow ecosystem participants." },
-    { icon: "◇", title: "Graduate Directory", description: "Searchable directory of program graduates for ecosystem networking." },
-  ];
-
-  return (
-    <div className="animate-fade-in max-w-3xl">
-      <div className="mb-6">
-        <span className="text-[#7da4c9]">. </span>
-        <span className="text-[#e8f1f8]">PROGRAM DETAILS</span>
-      </div>
-
-      <div className="text-xs text-[#b8d4e8] uppercase tracking-wider mb-4">What&apos;s Included</div>
-
-      <div className="space-y-2">
-        {features.map((feature, index) => (
-          <div key={index} className="os-card flex gap-4">
-            <span className="text-[#5fb4f7] text-lg shrink-0">{feature.icon}</span>
-            <div>
-              <div className="text-[#e8f1f8] text-sm">{feature.title}</div>
-              <div className="text-[#c8dced] text-xs mt-1">{feature.description}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <hr className="os-divider" />
-
-      <div className="text-xs text-[#b8d4e8] uppercase tracking-wider mb-4">Expected Outputs</div>
-
-      <div className="os-code text-xs space-y-1">
-        <p><span className="text-[#4ade80]">✓</span> <span className="text-[#c8dced]">Filecoin Strategy OS Platform (hosted on Circle)</span></p>
-        <p><span className="text-[#4ade80]">✓</span> <span className="text-[#c8dced]">Complete video course with enterprise methodology</span></p>
-        <p><span className="text-[#4ade80]">✓</span> <span className="text-[#c8dced]">Fill-in-the-blanks strategy tool (permanent ownership)</span></p>
-        <p><span className="text-[#4ade80]">✓</span> <span className="text-[#c8dced]">1-on-1 live feedback session with Jayne strategist</span></p>
-        <p><span className="text-[#4ade80]">✓</span> <span className="text-[#c8dced]">Cohort completion and impact reports</span></p>
-      </div>
-    </div>
-  );
-}
-
-// Outcomes content
-function OutcomesContent() {
-  return (
-    <div className="animate-fade-in max-w-3xl">
-      <div className="mb-6">
-        <span className="text-[#7da4c9]">. </span>
-        <span className="text-[#e8f1f8]">OUTCOMES</span>
-      </div>
-
-      <p className="text-xl text-[#e8f1f8] mb-6">
-        Leave with clarity. <span className="text-[#7da4c9]">And the skills to keep it.</span>
-      </p>
-
-      <div className="space-y-4">
-        <div className="os-card">
-          <div className="flex items-center gap-3 mb-2">
-            <span className="text-[#5fb4f7]">→</span>
-            <span className="text-[#e8f1f8]">Completed Strategy</span>
-          </div>
-          <p className="text-[#c8dced] text-sm">
-            A documented strategic platform you can execute against—audience, positioning, and messaging.
-          </p>
-        </div>
-
-        <div className="os-card">
-          <div className="flex items-center gap-3 mb-2">
-            <span className="text-[#5fb4f7]">↺</span>
-            <span className="text-[#e8f1f8]">Mastered Methodology</span>
-          </div>
-          <p className="text-[#c8dced] text-sm">
-            Own the framework forever. Continue to adapt and evolve at the pace right for your business.
-          </p>
-        </div>
-
-        <div className="os-card">
-          <div className="flex items-center gap-3 mb-2">
-            <span className="text-[#5fb4f7]">⬡</span>
-            <span className="text-[#e8f1f8]">Ecosystem Impact</span>
-          </div>
-          <p className="text-[#c8dced] text-sm">
-            Every team that communicates clearly accelerates Filecoin adoption and network growth.
-          </p>
-        </div>
-      </div>
-
-      <hr className="os-divider" />
-
-      <div className="text-xs text-[#b8d4e8] uppercase tracking-wider mb-4">Impact Pathway</div>
-
-      <div className="os-code text-xs space-y-2">
-        <p><span className="text-[#5fb4f7]">Platform + Curriculum</span> <span className="text-[#c8dced]">→ Teams gain clarity on positioning</span></p>
-        <p><span className="text-[#5fb4f7]">Strategy Platforms</span> <span className="text-[#c8dced]">→ Documented strategy to execute against</span></p>
-        <p><span className="text-[#5fb4f7]">1-on-1 Feedback</span> <span className="text-[#c8dced]">→ Personalized expert review</span></p>
-        <p><span className="text-[#5fb4f7]">Peer Community</span> <span className="text-[#c8dced]">→ Stronger ecosystem coordination</span></p>
-      </div>
-    </div>
-  );
-}
-
-// Audience content
-function AudienceContent() {
-  const audiences = [
-    { title: "ProPGF & RetroPGF Recipients", description: "Teams already validated as valuable who need help translating technical work into market traction." },
-    { title: "FOC & FVM Projects", description: "Teams building on Filecoin Onchain Cloud and FVM who need clear positioning in competitive markets." },
-    { title: "Storage Providers", description: "Operators who want to differentiate their services and attract enterprise clients." },
-    { title: "Infrastructure & Tooling Teams", description: "Projects building developer tools, SDKs, and integrations that need to reach target users." },
-    { title: "Core Ecosystem Organizations", description: "Teams supporting network growth, developer adoption, and storage provider success." },
-  ];
-
-  return (
-    <div className="animate-fade-in max-w-3xl">
-      <div className="mb-6">
-        <span className="text-[#7da4c9]">. </span>
-        <span className="text-[#e8f1f8]">WHO IT&apos;S FOR</span>
-      </div>
-
-      <p className="text-xl text-[#e8f1f8] mb-6">
-        Built for teams building Filecoin.
-      </p>
-
-      <p className="text-[#c8dced] mb-6 text-sm">
-        We chose these groups because they&apos;ve already demonstrated commitment to the ecosystem.
-        Investing in their strategic capabilities creates a multiplier effect.
-      </p>
-
-      <hr className="os-divider" />
-
-      <div className="text-xs text-[#b8d4e8] uppercase tracking-wider mb-4">Target Beneficiaries</div>
-
-      <div className="space-y-2">
-        {audiences.map((audience, index) => (
-          <div key={index} className="os-card">
-            <div className="text-[#e8f1f8] text-sm">{audience.title}</div>
-            <div className="text-[#c8dced] text-xs mt-1">{audience.description}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// Team content
-function TeamContent() {
-  const team = [
-    { initials: "BF", name: "Brooke Foley", role: "Program Leader", bio: "Founder and CEO of Jayne and Clarity University. 30 years in strategy. Previously Executive Creative Director at DDB, Razorfish, and Ogilvy." },
-    { initials: "TG", name: "Trevor Grant", role: "Ecosystem Liaison & Facilitator", bio: "Deep experience and knowledge in Filecoin Ecosystem. Work with Filecoin Foundation since 2022. Prev. work with Protocol Labs." },
-    { initials: "BP", name: "Brad Pierce", role: "Program Facilitator", bio: "Jayne's Chief Strategy Officer. 13+ years leading strategy across startups to Fortune 50 enterprises." },
-  ];
-
-  return (
-    <div className="animate-fade-in max-w-3xl">
-      <div className="mb-6">
-        <span className="text-[#7da4c9]">. </span>
-        <span className="text-[#e8f1f8]">TEAM</span>
-      </div>
-
-      <p className="text-xl text-[#e8f1f8] mb-6">
-        Led by world-class strategists.
-      </p>
-
-      <div className="space-y-3">
-        {team.map((member, index) => (
-          <div key={index} className="os-card flex gap-4">
-            <div className="os-avatar shrink-0">
-              <span>{member.initials}</span>
-            </div>
-            <div>
-              <div className="text-[#e8f1f8] text-sm">{member.name}</div>
-              <div className="text-[#5fb4f7] text-xs mb-2">{member.role}</div>
-              <div className="text-[#c8dced] text-xs leading-relaxed">{member.bio}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <hr className="os-divider" />
-
-      <div className="text-xs text-[#b8d4e8] uppercase tracking-wider mb-4">Credentials</div>
-
-      <div className="os-code text-xs text-[#c8dced]">
-        <p>Enterprise Clients: Coinstar, PepsiCo, Mondelēz, Takeda, American Red Cross</p>
-        <p>Data Points: 500,000+</p>
-        <p>Businesses Analyzed: 4,000+</p>
-        <p>Enterprise Engagements: 72+</p>
-      </div>
-    </div>
-  );
-}
-
-// Waitlist content
-function WaitlistContent() {
-  return (
-    <div className="animate-fade-in max-w-3xl">
-      <div className="mb-6">
-        <span className="text-[#7da4c9]">. </span>
-        <span className="text-[#e8f1f8]">JOIN WAITLIST</span>
-      </div>
-
-      <p className="text-xl text-[#e8f1f8] mb-6">
-        Ready to thrive?
-      </p>
-
-      <p className="text-[#c8dced] mb-6 text-sm">
-        Join the waitlist to be notified when the next cohort opens.
-        Limited spots available for Filecoin ecosystem teams.
-      </p>
-
-      <div className="my-8">
-        <a
-          href="https://your-typeform-url.typeform.com/to/XXXXX"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="os-button-primary inline-block"
+      {showFlame && (
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "100%",
+            transform: "translateX(-50%)",
+            marginTop: -8,
+          }}
         >
-          [+] JOIN THE WAITLIST
-        </a>
-      </div>
-
-      <p className="text-xs text-[#b8d4e8]">
-        Free for qualifying Filecoin ecosystem teams
-      </p>
-
-      <hr className="os-divider" />
-
-      <div className="text-xs text-[#b8d4e8] uppercase tracking-wider mb-4">What Happens Next</div>
-
-      <div className="os-code text-xs space-y-1 text-[#c8dced]">
-        <p>1. Submit your application via Typeform</p>
-        <p>2. We review for ecosystem fit</p>
-        <p>3. Selected teams receive cohort invitation</p>
-        <p>4. Begin your strategic clarity journey</p>
-        <span className="os-cursor"></span>
-      </div>
-    </div>
-  );
-}
-
-// Info panel (right side)
-function InfoPanel() {
-  return (
-    <div className="os-window h-full flex flex-col">
-      <div className="os-window-header">
-        <span>System Info</span>
-      </div>
-      <div className="flex-1 p-4 flex flex-col justify-between">
-        <div className="space-y-4">
-          <div className="os-info-row">
-            <span className="os-info-label">Status</span>
-            <span className="status-active font-semibold">ACTIVE</span>
-          </div>
-          <div className="os-info-row">
-            <span className="os-info-label">Cohort</span>
-            <span className="accent-glow font-semibold">OPEN</span>
-          </div>
-          <div className="os-info-row">
-            <span className="os-info-label">Network</span>
-            <span className="os-info-value font-semibold">FILECOIN</span>
-          </div>
-          <hr className="os-divider" />
-          <div className="os-info-row">
-            <span className="os-info-label">Provider</span>
-            <span className="os-info-value font-semibold">JAYNE</span>
-          </div>
-          <div className="os-info-row">
-            <span className="os-info-label">Method</span>
-            <span className="os-info-value font-semibold">CLARITY U</span>
-          </div>
+          <div
+            style={{
+              width: 18,
+              height: flameHeight,
+              background:
+                "linear-gradient(to bottom, #5fb4f7 0%, #7fcfff 20%, #fbbf24 40%, #f97316 60%, transparent 100%)",
+              borderRadius: "0 0 50% 50%",
+              opacity: 0.9,
+              filter: `blur(${1 + glowIntensity}px)`,
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: 36,
+              height: glowHeight,
+              background:
+                "radial-gradient(ellipse at center top, rgba(95,180,247,0.4) 0%, rgba(251,191,36,0.2) 30%, transparent 70%)",
+              filter: "blur(10px)",
+              opacity: glowIntensity,
+            }}
+          />
         </div>
-        <div className="text-xs text-[#7da4c9] text-right font-medium" style={{ textShadow: '0 0 8px rgba(95, 180, 247, 0.3)' }}>
-          NO DATA
-        </div>
-      </div>
+      )}
     </div>
   );
 }
 
-// Marquee
-function Marquee() {
-  const text = "Strategic Clarity for Filecoin Ecosystem Teams.    ●    Transform Technical Excellence into Market Traction.    ●    ";
+function Background({
+  starsOpacity,
+  atmosphereOpacity,
+  stars,
+}: {
+  starsOpacity: number;
+  atmosphereOpacity: number;
+  stars: StarData[];
+}) {
   return (
-    <div className="os-marquee">
-      <div className="os-marquee-content">
-        {text.repeat(8)}
-      </div>
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overflow: "hidden",
+        pointerEvents: "none",
+        zIndex: 0,
+      }}
+    >
+      {/* Deep space */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background:
+            "radial-gradient(ellipse at 50% 100%, #0a1628 0%, #030014 50%, #000008 100%)",
+          opacity: starsOpacity,
+          transition: "opacity 0.7s ease",
+        }}
+      />
+
+      {/* Stars layer */}
+      <Stars data={stars} opacity={starsOpacity} />
+
+      {/* Atmosphere */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background:
+            "linear-gradient(to bottom, #0a1628 0%, #162544 30%, #1e3a5f 50%, #2d4a6f 70%, #1a3352 100%)",
+          opacity: atmosphereOpacity,
+          transition: "opacity 0.5s ease",
+        }}
+      />
+
+      {/* Subtle grid */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundImage:
+            "linear-gradient(rgba(95,180,247,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(95,180,247,0.03) 1px, transparent 1px)",
+          backgroundSize: "60px 60px",
+          opacity: 0.5,
+        }}
+      />
     </div>
   );
 }
 
-// Footer status bar
-function StatusBar() {
+function Container({ children }: { children: React.ReactNode }) {
   return (
-    <div className="os-statusbar flex-wrap gap-2">
-      <div className="flex items-center gap-2 sm:gap-6 flex-wrap">
-        <span className="text-[10px] sm:text-xs">Strategy OS</span>
-        <span className="text-[#30363d] hidden sm:inline">|</span>
-        <span className="text-[10px] sm:text-xs hidden sm:inline">Powered by Jayne & Clarity University</span>
-      </div>
-      <Clock />
+    <div
+      style={{
+        width: "100%",
+        maxWidth: 1100,
+        marginLeft: "auto",
+        marginRight: "auto",
+        paddingLeft: 24,
+        paddingRight: 24,
+      }}
+    >
+      {children}
     </div>
   );
 }
 
-// Main Page
-export default function Home() {
-  const [activeSection, setActiveSection] = useState("home");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+function SectionWrapper({
+  children,
+  paddingY = 128,
+}: {
+  children: React.ReactNode;
+  paddingY?: number;
+}) {
+  return (
+    <section
+      style={{
+        width: "100%",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingTop: paddingY,
+        paddingBottom: paddingY,
+      }}
+    >
+      <Container>{children}</Container>
+    </section>
+  );
+}
 
-  const handleNavigate = (id: string) => {
-    setActiveSection(id);
+function Pill({
+  children,
+  variant = "blue",
+}: {
+  children: React.ReactNode;
+  variant?: "blue" | "red" | "green";
+}) {
+  const colors = {
+    blue: { bg: "rgba(95,180,247,0.1)", border: "rgba(95,180,247,0.3)", text: "#5fb4f7" },
+    red: { bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.3)", text: "#f87171" },
+    green: { bg: "rgba(74,222,128,0.1)", border: "rgba(74,222,128,0.3)", text: "#4ade80" },
   };
+  const c = colors[variant];
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0d1117]">
-      {/* Mobile menu button */}
-      <MobileMenuButton
-        isOpen={mobileMenuOpen}
-        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "10px 20px",
+        backgroundColor: c.bg,
+        border: `1px solid ${c.border}`,
+        borderRadius: 9999,
+        color: c.text,
+        fontSize: 13,
+        fontWeight: 600,
+        letterSpacing: "0.12em",
+        textTransform: "uppercase",
+      }}
+    >
+      <span
+        style={{
+          width: 6,
+          height: 6,
+          backgroundColor: c.text,
+          borderRadius: "50%",
+        }}
       />
+      {children}
+    </span>
+  );
+}
 
-      {/* Mobile overlay */}
-      <MobileOverlay
-        isOpen={mobileMenuOpen}
-        onClick={() => setMobileMenuOpen(false)}
-      />
+function ContentCard({
+  children,
+  accentColor = "blue",
+}: {
+  children: React.ReactNode;
+  accentColor?: "blue" | "red";
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+  const hoverBorder = accentColor === "red" ? "rgba(248,113,113,0.4)" : "rgba(95,180,247,0.4)";
 
-      {/* Mobile sidebar - fixed overlay, outside grid flow */}
-      {mobileMenuOpen && (
-        <Sidebar
-          activeSection={activeSection}
-          onNavigate={handleNavigate}
-          isOpen={mobileMenuOpen}
-          onClose={() => setMobileMenuOpen(false)}
-          isMobile={true}
+  return (
+    <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        backgroundColor: "rgba(12,24,41,0.8)",
+        border: `1px solid ${isHovered ? hoverBorder : "rgba(30,58,95,0.4)"}`,
+        borderRadius: 20,
+        padding: "36px 40px",
+        transition: "border-color 0.4s ease",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ============================================
+// PAGE SECTIONS
+// ============================================
+
+function HeroSection() {
+  return (
+    <SectionWrapper paddingY={0}>
+      <div style={{ textAlign: "center" }}>
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "10px 20px",
+            backgroundColor: "rgba(10,22,40,0.6)",
+            border: "1px solid #1e3a5f",
+            borderRadius: 9999,
+            marginBottom: 40,
+          }}
+        >
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              backgroundColor: "#5fb4f7",
+              borderRadius: "50%",
+            }}
+          />
+          <span
+            style={{
+              color: "#5fb4f7",
+              fontSize: 13,
+              fontWeight: 600,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+            }}
+          >
+            Filecoin Ecosystem
+          </span>
+        </div>
+
+        <h1
+          style={{
+            fontSize: "clamp(56px, 12vw, 140px)",
+            fontWeight: 700,
+            color: "#ffffff",
+            lineHeight: 0.95,
+            letterSpacing: "-0.03em",
+            marginBottom: 32,
+          }}
+        >
+          Strategy
+          <br />
+          Launchpad
+        </h1>
+
+        <p
+          style={{
+            fontSize: "clamp(20px, 3vw, 32px)",
+            color: "#8ba4c4",
+            fontWeight: 300,
+            lineHeight: 1.5,
+            maxWidth: 700,
+            marginLeft: "auto",
+            marginRight: "auto",
+            marginBottom: 64,
+          }}
+        >
+          Without strategy, even the best technology ends up invisible.
+        </p>
+
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "12px 24px",
+            border: "1px solid rgba(30,58,95,0.5)",
+            borderRadius: 9999,
+            color: "#5a7a9a",
+            fontSize: 14,
+          }}
+        >
+          <span>Scroll to begin</span>
+          <span style={{ fontSize: 18 }}>↓</span>
+        </div>
+      </div>
+    </SectionWrapper>
+  );
+}
+
+function ProblemSection() {
+  const problems = [
+    {
+      main: "You've built something powerful on Filecoin",
+      sub: "but struggle to explain why anyone should care",
+    },
+    {
+      main: "You compete on price or technical specs",
+      sub: "because you can't articulate your real differentiation",
+    },
+    {
+      main: "Your pitch deck explains what you do, not why it matters",
+      sub: "so enterprise clients tune out",
+    },
+    {
+      main: "You got the grant, shipped the code",
+      sub: "but adoption is painfully slow",
+    },
+    {
+      main: "You're doing everything right technically",
+      sub: "yet still feel like you're shouting into the void",
+    },
+  ];
+
+  return (
+    <SectionWrapper>
+      <div style={{ textAlign: "center", marginBottom: 64 }}>
+        <Pill variant="red">Sound familiar?</Pill>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {problems.map((item, index) => (
+          <ContentCard key={index} accentColor="red">
+            <p
+              style={{
+                fontSize: "clamp(18px, 2.5vw, 32px)",
+                fontWeight: 500,
+                color: "#ffffff",
+                lineHeight: 1.4,
+                marginBottom: 8,
+              }}
+            >
+              {item.main}
+            </p>
+            <p
+              style={{
+                fontSize: "clamp(15px, 1.5vw, 22px)",
+                color: "#5a7a9a",
+                lineHeight: 1.5,
+              }}
+            >
+              {item.sub}
+            </p>
+          </ContentCard>
+        ))}
+      </div>
+    </SectionWrapper>
+  );
+}
+
+function RealitySection() {
+  return (
+    <SectionWrapper>
+      <div
+        style={{
+          backgroundColor: "rgba(12,24,41,0.5)",
+          border: "1px solid rgba(30,58,95,0.4)",
+          borderRadius: 32,
+          padding: "clamp(40px, 8vw, 80px)",
+        }}
+      >
+        <p
+          style={{
+            fontSize: "clamp(18px, 2.5vw, 30px)",
+            color: "#8ba4c4",
+            textAlign: "center",
+            lineHeight: 1.6,
+            maxWidth: 800,
+            marginLeft: "auto",
+            marginRight: "auto",
+            marginBottom: 48,
+          }}
+        >
+          The Filecoin ecosystem has funded hundreds of teams through ProPGF, RetroPGF, and dev
+          grants.
+        </p>
+
+        <div
+          style={{
+            borderTop: "1px solid rgba(30,58,95,0.5)",
+            borderBottom: "1px solid rgba(30,58,95,0.5)",
+            padding: "48px 0",
+            marginBottom: 48,
+          }}
+        >
+          <p
+            style={{
+              fontSize: "clamp(28px, 5vw, 64px)",
+              fontWeight: 700,
+              color: "#ffffff",
+              textAlign: "center",
+              lineHeight: 1.1,
+            }}
+          >
+            The technology is world-class.
+          </p>
+        </div>
+
+        <p
+          style={{
+            fontSize: "clamp(16px, 2vw, 26px)",
+            color: "#5a7a9a",
+            textAlign: "center",
+            lineHeight: 1.6,
+            maxWidth: 800,
+            marginLeft: "auto",
+            marginRight: "auto",
+          }}
+        >
+          But brilliant infrastructure with unclear positioning means slower adoption, lower
+          visibility, and reduced ecosystem impact.
+        </p>
+        <p
+          style={{
+            fontSize: "clamp(16px, 2vw, 26px)",
+            fontWeight: 500,
+            color: "#ffffff",
+            textAlign: "center",
+            lineHeight: 1.6,
+            marginTop: 16,
+          }}
+        >
+          The network can't grow if no one understands why they need it.
+        </p>
+      </div>
+    </SectionWrapper>
+  );
+}
+
+function VisionSection() {
+  return (
+    <SectionWrapper>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ marginBottom: 48 }}>
+          <Pill variant="green">Imagine</Pill>
+        </div>
+
+        <p
+          style={{
+            fontSize: "clamp(22px, 4vw, 56px)",
+            fontWeight: 500,
+            color: "#ffffff",
+            lineHeight: 1.3,
+            maxWidth: 1000,
+            marginLeft: "auto",
+            marginRight: "auto",
+          }}
+        >
+          Every storage provider, FVM builder, and infrastructure team could articulate exactly{" "}
+          <span style={{ color: "#4ade80" }}>why their solution matters</span>
+        </p>
+
+        <p
+          style={{
+            fontSize: "clamp(22px, 4vw, 56px)",
+            fontWeight: 500,
+            color: "#ffffff",
+            lineHeight: 1.3,
+            maxWidth: 1000,
+            marginLeft: "auto",
+            marginRight: "auto",
+            marginTop: 24,
+          }}
+        >
+          — and <span style={{ color: "#4ade80" }}>why enterprises should choose Filecoin</span>.
+        </p>
+      </div>
+    </SectionWrapper>
+  );
+}
+
+function SolutionSection() {
+  const benefits = [
+    {
+      icon: "◇",
+      title: "Crystal clear positioning",
+      desc: "Explain your value in one sentence. No more fumbled pitches.",
+    },
+    {
+      icon: "↗",
+      title: "Faster adoption",
+      desc: "When the message is right, users and enterprises show up.",
+    },
+    {
+      icon: "◎",
+      title: "Inbound demand",
+      desc: "Stop chasing. Start attracting the right customers.",
+    },
+    {
+      icon: "◈",
+      title: "Premium pricing",
+      desc: "Compete on value, not price. Escape the race to the bottom.",
+    },
+  ];
+
+  return (
+    <SectionWrapper>
+      <div style={{ textAlign: "center", marginBottom: 64 }}>
+        <div style={{ marginBottom: 24 }}>
+          <Pill variant="blue">The missing layer</Pill>
+        </div>
+
+        <h2
+          style={{
+            fontSize: "clamp(24px, 4vw, 52px)",
+            fontWeight: 700,
+            color: "#ffffff",
+            lineHeight: 1.2,
+            maxWidth: 900,
+            marginLeft: "auto",
+            marginRight: "auto",
+            marginBottom: 24,
+          }}
+        >
+          Strategic clarity is the missing layer
+          <span style={{ color: "#5fb4f7" }}> in the Filecoin stack.</span>
+        </h2>
+
+        <p style={{ fontSize: "clamp(16px, 1.5vw, 22px)", color: "#5a7a9a" }}>
+          Get this right, and everything else gets easier:
+        </p>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gap: 24,
+        }}
+      >
+        {benefits.map((item, index) => (
+          <ContentCard key={index}>
+            <div style={{ fontSize: 48, color: "#5fb4f7", marginBottom: 20 }}>{item.icon}</div>
+            <h3
+              style={{
+                fontSize: 24,
+                fontWeight: 600,
+                color: "#ffffff",
+                marginBottom: 12,
+              }}
+            >
+              {item.title}
+            </h3>
+            <p style={{ fontSize: 17, color: "#5a7a9a", lineHeight: 1.6 }}>{item.desc}</p>
+          </ContentCard>
+        ))}
+      </div>
+    </SectionWrapper>
+  );
+}
+
+function CTASection() {
+  const audiences = [
+    "Storage Providers",
+    "FVM Builders",
+    "ProPGF Recipients",
+    "RetroPGF Recipients",
+    "Infrastructure Teams",
+  ];
+
+  return (
+    <SectionWrapper>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ marginBottom: 40 }}>
+          <Pill variant="blue">You've arrived</Pill>
+        </div>
+
+        <h2
+          style={{
+            fontSize: "clamp(32px, 5vw, 68px)",
+            fontWeight: 700,
+            color: "#ffffff",
+            marginBottom: 32,
+          }}
+        >
+          Welcome to strategic clarity.
+        </h2>
+
+        <p
+          style={{
+            fontSize: "clamp(17px, 2vw, 26px)",
+            color: "#8ba4c4",
+            lineHeight: 1.6,
+            maxWidth: 800,
+            marginLeft: "auto",
+            marginRight: "auto",
+            marginBottom: 48,
+          }}
+        >
+          The Filecoin Strategy Launchpad brings enterprise-grade strategy methodology to ecosystem
+          teams — so you can turn technical excellence into market traction.
+        </p>
+
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            gap: 10,
+            marginBottom: 48,
+          }}
+        >
+          {audiences.map((tag) => (
+            <span
+              key={tag}
+              style={{
+                padding: "10px 20px",
+                fontSize: 15,
+                color: "#8ba4c4",
+                backgroundColor: "rgba(10,22,40,0.6)",
+                border: "1px solid rgba(30,58,95,0.6)",
+                borderRadius: 9999,
+              }}
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+
+        <p style={{ fontSize: 15, color: "#3a5a7a", marginTop: 48 }}>
+          Powered by Jayne & Clarity University
+        </p>
+      </div>
+    </SectionWrapper>
+  );
+}
+
+// ============================================
+// MAIN PAGE COMPONENT
+// ============================================
+
+export default function Home() {
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [stars, setStars] = useState<StarData[]>([]);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+    setStars(generateStars(120));
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    const progress = clamp(window.scrollY / docHeight, 0, 1);
+    setScrollProgress(progress);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [handleScroll]);
+
+  // Derived animation values
+  const rocketBottom = Math.pow(scrollProgress, 0.8) * 85 + 5;
+  const atmosphereOpacity = Math.max(0, 1 - scrollProgress * 2.5);
+  const starsOpacity = clamp((scrollProgress - 0.2) * 2, 0, 1);
+  const engineGlow = Math.min(1, scrollProgress * 3);
+  const arrivedVisible = scrollProgress > 0.85;
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        minHeight: "100vh",
+        backgroundColor: "#030014",
+        color: "#e8f1f8",
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      }}
+    >
+      {/* Background layers */}
+      {isClient && (
+        <Background
+          stars={stars}
+          starsOpacity={starsOpacity}
+          atmosphereOpacity={atmosphereOpacity}
         />
       )}
 
-      {/* Main layout */}
-      <div className="flex-1 p-3 flex lg:grid lg:grid-cols-[260px_1fr_180px] gap-3 min-h-0">
-        {/* Desktop sidebar - in grid flow, hidden on mobile */}
-        <div className="hidden lg:block h-full">
-          <Sidebar
-            activeSection={activeSection}
-            onNavigate={handleNavigate}
-            isOpen={true}
-            onClose={() => {}}
-            isMobile={false}
-          />
-        </div>
-
-        {/* Main content */}
-        <div className="flex-1 min-h-0">
-          <MainContent activeSection={activeSection} />
-        </div>
-
-        {/* Right panel - hidden on mobile */}
-        <div className="hidden lg:block">
-          <InfoPanel />
-        </div>
+      {/* Fixed rocket (desktop only) */}
+      <div
+        style={{
+          position: "fixed",
+          right: "6%",
+          bottom: `${rocketBottom}%`,
+          zIndex: 50,
+          transition: "bottom 75ms ease-out",
+          display: isClient && window.innerWidth >= 1280 ? "block" : "none",
+        }}
+      >
+        <RocketShip glowIntensity={engineGlow} />
       </div>
 
-      {/* Marquee */}
-      <Marquee />
+      {/* Arrival indicator */}
+      <div
+        style={{
+          position: "fixed",
+          top: 48,
+          right: 48,
+          zIndex: 50,
+          opacity: arrivedVisible ? 1 : 0,
+          transform: `translateY(${arrivedVisible ? 0 : -20}px)`,
+          transition: "all 0.5s ease",
+          display: isClient && window.innerWidth >= 1280 ? "flex" : "none",
+          alignItems: "center",
+          gap: 10,
+          color: "#5fb4f7",
+          fontSize: 13,
+          fontWeight: 600,
+          letterSpacing: "0.08em",
+        }}
+      >
+        <span
+          style={{
+            width: 8,
+            height: 8,
+            backgroundColor: "#4ade80",
+            borderRadius: "50%",
+          }}
+        />
+        DESTINATION REACHED
+      </div>
 
-      {/* Status bar */}
-      <StatusBar />
+      {/* Main content */}
+      <main style={{ position: "relative", zIndex: 10, width: "100%" }}>
+        <HeroSection />
+        <ProblemSection />
+        <RealitySection />
+        <VisionSection />
+        <SolutionSection />
+        <CTASection />
+      </main>
     </div>
   );
 }
